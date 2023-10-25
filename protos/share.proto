@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option go_package = "github.com/Monstergogo/beauty-share/protos";
+
+service ShareService {
+  rpc AddShare(AddShareReq) returns (AddShareResp) {}
+  rpc GetShareByPage(GetShareByPageReq) returns (GetShareByPageResp) {}
+}
+
+message AddShareReq {
+  ListOfPost post_content = 1;
+}
+
+message AddShareResp {
+  string message = 1;
+}
+
+message GetShareByPageReq {
+  int32 page_index = 1;
+  int32 page_size = 2;
+}
+
+message GetShareByPageResp {
+  int64 total = 1;
+  repeated ListOfPost data = 2;
+}
+
+message ListOfPost {
+  string text = 1;
+  repeated bytes img = 2;
+}
