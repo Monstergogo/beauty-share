@@ -4,7 +4,7 @@
 // - protoc             v3.19.1
 // source: share.proto
 
-package protos
+package protobuf_spec
 
 import (
 	context "context"

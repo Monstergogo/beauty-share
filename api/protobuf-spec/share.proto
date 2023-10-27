@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/Monstergogo/beauty-share/protos";
+option go_package = "api/protobuf-spec";
 
 service ShareService {
   rpc AddShare(AddShareReq) returns (AddShareResp) {}
@@ -27,5 +27,5 @@ message GetShareByPageResp {
 
 message ListOfPost {
   string text = 1;
-  repeated bytes img = 2;
+  repeated string img = 2;
 }

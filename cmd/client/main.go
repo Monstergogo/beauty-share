@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	pb "github.com/Monstergogo/beauty-share/protos"
+	pb "github.com/Monstergogo/beauty-share/api/protobuf-spec"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
