@@ -1,10 +1,17 @@
-package _interface
+package server
 
 import (
 	"context"
+	"fmt"
+	pb "github.com/Monstergogo/beauty-share/api/protobuf-spec"
+	"github.com/Monstergogo/beauty-share/init/db"
+	"github.com/Monstergogo/beauty-share/internal/app"
+	"github.com/Monstergogo/beauty-share/internal/repo_interface"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -37,8 +44,9 @@ func (m MicroServer) RegisterGinRouter(router HttpServerRouter) {
 	}
 }
 
-func ServerInit() MicroServer {
+func InitServer() MicroServer {
 	ginServer := gin.Default()
+	db.InitMongoDB()
 	return MicroServer{GinServer: ginServer}
 }
 
@@ -50,6 +58,20 @@ func (m MicroServer) RunServer() {
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server listen err:%s", err)
+		}
+	}()
+
+	go func() {
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", 5018))
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
+		srv := grpc.NewServer()
+		pb.RegisterShareServiceServer(srv, &app.ShareServiceImpl{
+			MongoRepo: repo_interface.MongoRepoProvider(),
+		})
+		if err = srv.Serve(listener); err != nil {
+			log.Fatalln(err)
 		}
 	}()
 	waitSignalClose(httpServer)

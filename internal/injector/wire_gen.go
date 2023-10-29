@@ -7,6 +7,7 @@
 package injector
 
 import (
+	"github.com/Monstergogo/beauty-share/internal/repo_interface"
 	"github.com/Monstergogo/beauty-share/internal/service_interface"
 )
 
@@ -15,4 +16,10 @@ import (
 func GetOssServer() service_interface.OSSService {
 	ossService := service_interface.OssServiceProvider()
 	return ossService
+}
+
+func GetShareServer() service_interface.ShareService {
+	mongoRepo := repo_interface.MongoRepoProvider()
+	shareService := service_interface.ShareServiceProvider(mongoRepo)
+	return shareService
 }

@@ -13,7 +13,19 @@ import (
 	"sync"
 )
 
-var minIOClient *minio.Client
+var minioClient *minio.Client
+
+func init() {
+	var err error
+	// Initialize minio client object.
+	minioClient, err = minio.New(util.MinioEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(util.MinioID, util.MinioSecret, ""),
+		Secure: false,
+	})
+	if err != nil {
+		panic(err)
+	}
+}
 
 var contentType = map[string]string{
 	"gif":  "image/gif",
@@ -43,16 +55,6 @@ func getUploadContentType(fileType string) string {
 }
 
 func (receiver *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multipart.FileHeader) (fileUrl []string, err error) {
-	// Initialize minio client object.
-	minioClient, err := minio.New(util.MinioEndpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(util.MinioID, util.MinioSecret, ""),
-		Secure: false,
-	})
-	if err != nil {
-		log.Fatalln(err)
-		return fileUrl, err
-	}
-
 	snowNode, err := util.NewWorker(1)
 	if err != nil {
 		log.Fatalln(err)

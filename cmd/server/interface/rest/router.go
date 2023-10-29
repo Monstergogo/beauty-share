@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"github.com/Monstergogo/beauty-share/cmd/server/interface"
+	"github.com/Monstergogo/beauty-share/init/server"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/gin-gonic/gin"
 )
@@ -17,8 +17,8 @@ func toGinHandler(handler func(*gin.Context) (interface{}, error)) func(*gin.Con
 	}
 }
 
-func InitRouter(server _interface.MicroServer) {
-	server.RegisterGinRouter(_interface.HttpServerRouter{
+func InitRouter(s server.MicroServer) {
+	s.RegisterGinRouter(server.HttpServerRouter{
 		Path:    "/v1/oss/upload",
 		Method:  util.HttpMethodPost,
 		Handler: toGinHandler(OssUpload),
