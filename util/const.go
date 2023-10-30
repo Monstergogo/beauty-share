@@ -25,7 +25,7 @@ const (
 const FileUploadRequestName = "files"
 
 const (
-	MongoURI              = "mongodb://admin:admin@localhost:27017"
+	MongoURI              = "mongodb://root:root123@localhost:27017/share"
 	MongoShareDBName      = "share"
 	MongoShareCollectName = "shares"
 )

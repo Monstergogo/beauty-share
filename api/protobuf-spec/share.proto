@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 option go_package = "api/protobuf-spec";
 
 service ShareService {
@@ -18,17 +16,19 @@ message AddShareResp {
 }
 
 message GetShareByPageReq {
-  int64 page_index = 1;
+  string last_id = 1;
   int64 page_size = 2;
 }
 
 message GetShareByPageResp {
   int64 total = 1;
-  repeated PostItem data = 2;
+  string last_id = 2;
+  repeated PostItem data = 3;
 }
 
 message PostItem {
   string text = 1;
   repeated string img = 2;
-  google.protobuf.Timestamp CreatedAt = 3;
+  string created_at = 3;
+  string updated_at = 4;
 }

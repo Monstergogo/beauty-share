@@ -29,3 +29,12 @@ func InitMongoDB() {
 func GetMongoDB() *mongo.Client {
 	return mongoDB
 }
+
+func DisconnectMongoDB() error {
+	if err := mongoDB.Disconnect(context.Background()); err != nil {
+		log.Fatalf("disconnect mongo db err:%v", err)
+		return err
+	}
+	log.Println("disconnect mongo db success")
+	return nil
+}
