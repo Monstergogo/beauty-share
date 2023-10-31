@@ -29,3 +29,8 @@ const (
 	MongoShareDBName      = "share"
 	MongoShareCollectName = "shares"
 )
+
+const (
+	LogPath = "logs/access.log"
+	ErrPath = "logs/err.log"
+)

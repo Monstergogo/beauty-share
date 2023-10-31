@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Monstergogo/beauty-share/init/logger"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"go.uber.org/zap"
 	"log"
 	"mime/multipart"
 	"strings"
@@ -72,7 +74,7 @@ func (receiver *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multi
 			file, err = files[index].Open()
 			defer file.Close()
 			if err != nil {
-				log.Fatalln(err)
+				logger.GetLogger().Error("file open err", zap.Any("err_msg", err))
 				return
 			}
 			fileSize := files[index].Size
@@ -84,7 +86,7 @@ func (receiver *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multi
 
 			_, err = minioClient.PutObject(ctx, util.BucketName, uploadFilename, file, fileSize, minio.PutObjectOptions{ContentType: uploadContentType})
 			if err != nil {
-				log.Fatalln(err)
+				logger.GetLogger().Error("upload object to bucket err", zap.Any("err_msg", err))
 				return
 			}
 			fileUrl = append(fileUrl, fmt.Sprintf("%s:%s/%s/%s", util.MinioNetProtocol, util.MinioEndpoint, util.BucketName, uploadFilename))

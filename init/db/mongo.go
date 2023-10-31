@@ -2,10 +2,11 @@ package db
 
 import (
 	"context"
+	"github.com/Monstergogo/beauty-share/init/logger"
 	"github.com/Monstergogo/beauty-share/util"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"log"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -23,7 +24,7 @@ func InitMongoDB() {
 	if err != nil {
 		panic(err)
 	}
-	log.Println("mongo db connected success")
+	logger.GetLogger().Info("mongo db connected success")
 }
 
 func GetMongoDB() *mongo.Client {
@@ -32,9 +33,9 @@ func GetMongoDB() *mongo.Client {
 
 func DisconnectMongoDB() error {
 	if err := mongoDB.Disconnect(context.Background()); err != nil {
-		log.Fatalf("disconnect mongo db err:%v", err)
+		logger.GetLogger().Error("disconnect mongo db err:%v", zap.Any("err", err))
 		return err
 	}
-	log.Println("disconnect mongo db success")
+	logger.GetLogger().Info("disconnect mongo db success")
 	return nil
 }
