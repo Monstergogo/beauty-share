@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ const (
 	timeShift   uint8 = workerBits + numberBits
 	workerShift uint8 = numberBits
 	startTime   int64 = 1698400286000
+	CtxTraceId        = "traceId"
 )
 
 type Worker struct {
@@ -23,6 +25,7 @@ type Worker struct {
 	number    int64
 }
 
+// NewWorker 雪花算法初始化，用于生成唯一id
 func NewWorker(workerId int64) (*Worker, error) {
 	if workerId < 0 || workerId > workerMax {
 		return nil, errors.New("worker ID excess of quantity")
@@ -52,4 +55,15 @@ func (w *Worker) GetId() int64 {
 	}
 	ID := (now-startTime)<<timeShift | (w.workerId << workerShift) | (w.number)
 	return ID
+}
+
+func GetTraceIdFromCtx(ctx context.Context) string {
+	traceId := ctx.Value(CtxTraceId)
+	if traceId == nil {
+		return ""
+	}
+	if traceIdStr, ok := traceId.(string); ok {
+		return traceIdStr
+	}
+	return ""
 }
