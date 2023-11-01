@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type MongoRepoImpl struct {
@@ -30,7 +31,7 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 	filter := bson.D{{"_id", bson.M{"$gt": lastId}}}
 	cur, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
-		logger.GetLogger().Error("get share info by page err", zap.Any("err_smg", err))
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page err", zap.Any("err_smg", err))
 		return total, res, err
 	}
 	defer cur.Close(ctx)
@@ -38,14 +39,14 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 	for cur.Next(ctx) {
 		var temp *entity.ShareInfo
 		if err = cur.Decode(&temp); err != nil {
-			logger.GetLogger().Error("repo decode to share info err", zap.Any("err_smg", err))
+			logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "repo decode to share info err", zap.Any("err_smg", err))
 			return total, res, err
 		}
 		res = append(res, temp)
 	}
 	total, err = collection.CountDocuments(ctx, filter)
 	if err != nil {
-		logger.GetLogger().Error("get share info by page repo err", zap.Any("err_msg", err))
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page repo err", zap.Any("err_msg", err))
 		return total, res, err
 	}
 	return total, res, err
@@ -56,7 +57,7 @@ func (s *MongoRepoImpl) AddShare(ctx context.Context, shareInfo entity.ShareInfo
 	collection := db.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
 	_, err := collection.InsertOne(ctx, shareInfo)
 	if err != nil {
-		logger.GetLogger().Error("mongo insert one err", zap.Any("err_msg", err))
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "mongo insert one err", zap.Any("err_msg", err))
 		return err
 	}
 	return err

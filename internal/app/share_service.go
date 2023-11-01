@@ -9,6 +9,7 @@ import (
 	"github.com/Monstergogo/beauty-share/internal/repo_interface"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"time"
 )
 
@@ -44,7 +45,7 @@ func (s ShareServiceImpl) GetShareByPage(ctx context.Context, in *pb.GetShareByP
 	}
 	lastId, err := primitive.ObjectIDFromHex(in.LastId)
 	if err != nil {
-		logger.GetLogger().Error("trans to object id err", zap.Any("err_msg", err))
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "trans to object id err", zap.Any("err_msg", err))
 		return resp, errors.New("lastId err")
 	}
 	total, queryItem, err := s.MongoRepo.GetShareByPage(ctx, lastId, in.PageSize)

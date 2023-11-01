@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"context"
+	"github.com/Monstergogo/beauty-share/util"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -47,5 +49,22 @@ func InitLogger(conf LogConf) {
 	} else {
 		core = coreLog
 	}
-	logger = zap.New(core, zap.AddCaller())
+	logger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
+}
+
+func LogWithTraceId(ctx context.Context, level zapcore.Level, msg string, fields ...zapcore.Field) {
+	traceId := util.GetTraceIdFromCtx(ctx)
+	fieldsNew := make([]zap.Field, 0, len(fields)+1)
+	fieldsNew = append(fieldsNew, zap.String("traceId", traceId))
+	fieldsNew = append(fieldsNew, fields...)
+	switch level {
+	case zapcore.WarnLevel:
+		logger.Warn(msg, fieldsNew...)
+	case zapcore.ErrorLevel:
+		logger.Error(msg, fieldsNew...)
+	case zap.DebugLevel:
+		logger.Debug(msg, fieldsNew...)
+	default:
+		logger.Info(msg, fieldsNew...)
+	}
 }
