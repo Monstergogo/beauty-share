@@ -4,7 +4,7 @@
 // - protoc             v3.19.1
 // source: share.proto
 
-package protobuf_spec
+package share
 
 import (
 	context "context"
@@ -36,7 +36,7 @@ func NewShareServiceClient(cc grpc.ClientConnInterface) ShareServiceClient {
 
 func (c *shareServiceClient) AddShare(ctx context.Context, in *AddShareReq, opts ...grpc.CallOption) (*AddShareResp, error) {
 	out := new(AddShareResp)
-	err := c.cc.Invoke(ctx, "/ShareService/AddShare", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/share.ShareService/AddShare", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *shareServiceClient) AddShare(ctx context.Context, in *AddShareReq, opts
 
 func (c *shareServiceClient) GetShareByPage(ctx context.Context, in *GetShareByPageReq, opts ...grpc.CallOption) (*GetShareByPageResp, error) {
 	out := new(GetShareByPageResp)
-	err := c.cc.Invoke(ctx, "/ShareService/GetShareByPage", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/share.ShareService/GetShareByPage", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func _ShareService_AddShare_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ShareService/AddShare",
+		FullMethod: "/share.ShareService/AddShare",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ShareServiceServer).AddShare(ctx, req.(*AddShareReq))
@@ -112,7 +112,7 @@ func _ShareService_GetShareByPage_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ShareService/GetShareByPage",
+		FullMethod: "/share.ShareService/GetShareByPage",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ShareServiceServer).GetShareByPage(ctx, req.(*GetShareByPageReq))
@@ -124,7 +124,7 @@ func _ShareService_GetShareByPage_Handler(srv interface{}, ctx context.Context, 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ShareService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ShareService",
+	ServiceName: "share.ShareService",
 	HandlerType: (*ShareServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

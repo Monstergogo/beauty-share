@@ -69,7 +69,7 @@ func registerService() error {
 		Enable:      true,
 		Healthy:     true,
 		Ephemeral:   true,
-		Metadata:    map[string]string{"rpc-type": "grpc"},
+		Metadata:    map[string]string{"rpc-type": "grpc", "version": "v1"},
 	}
 	currIp, err := util.GetCurrIp()
 	if err != nil {

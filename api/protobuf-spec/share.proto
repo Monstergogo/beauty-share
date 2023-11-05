@@ -1,6 +1,7 @@
 syntax = "proto3";
+package share;
 
-option go_package = "api/protobuf-spec";
+option go_package = "github.com/Monstergogo/beauty-share/api/protobuf-spec;share";
 
 service ShareService {
   rpc AddShare(AddShareReq) returns (AddShareResp) {}

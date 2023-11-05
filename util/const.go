@@ -6,7 +6,7 @@ const (
 	MinioNetProtocol = "http"
 	GinServerPort    = 5008
 	GrpcServerPort   = 5018
-	GrpcServiceName  = "ShareService"
+	GrpcServiceName  = "share.ShareService"
 )
 
 type HttpMethod string
