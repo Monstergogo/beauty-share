@@ -4,6 +4,9 @@ const (
 	BucketName       = "photos"
 	MinioEndpoint    = "localhost:9000"
 	MinioNetProtocol = "http"
+	GinServerPort    = 5008
+	GrpcServerPort   = 5018
+	GrpcServiceName  = "ShareService"
 )
 
 type HttpMethod string
@@ -33,4 +36,13 @@ const (
 const (
 	LogPath = "logs/access.log"
 	ErrPath = "logs/err.log"
+)
+
+const (
+	NacosConfPath = "conf/nacos.yaml"
+)
+
+const (
+	NacosServerAddrEnvKey = "NACOS_SERVER_ADDR"
+	NacosServerPortEnvKey = "NACOS_SERVER_PORT"
 )
