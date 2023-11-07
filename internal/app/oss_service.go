@@ -5,30 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Monstergogo/beauty-share/init/logger"
+	myMinio "github.com/Monstergogo/beauty-share/init/minio"
+	"github.com/Monstergogo/beauty-share/init/nacos"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"log"
 	"mime/multipart"
 	"strings"
 	"sync"
 )
-
-var minioClient *minio.Client
-
-func init() {
-	var err error
-	// Initialize minio client object.
-	minioClient, err = minio.New(util.MinioEndpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(util.MinioID, util.MinioSecret, ""),
-		Secure: false,
-	})
-	if err != nil {
-		panic(err)
-	}
-}
 
 var contentType = map[string]string{
 	"gif":  "image/gif",
@@ -57,11 +44,44 @@ func getUploadContentType(fileType string) string {
 	return uploadContentType
 }
 
-func (receiver *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multipart.FileHeader) (fileUrl []string, err error) {
+// 根据雪花算法生成相对有序的文件名
+func genFilenameAscBySnow(fileNum int) ([]int64, error) {
 	snowNode, err := util.NewWorker(1)
 	if err != nil {
-		log.Fatalln(err)
-		return fileUrl, errors.New("get snow work node er")
+		logger.GetLogger().Error("init snow worker err", zap.Any("err_msg", err))
+		return nil, errors.New("get snow work node er")
+	}
+	res := make([]int64, fileNum)
+	for i := 0; i < fileNum; i++ {
+		res[i] = snowNode.GetId()
+	}
+	return res, err
+}
+
+// 获取endpoint和bucket配置信息
+func getMinioEndpointAndBucketName(ctx context.Context) (endpoint, bucketName string, err error) {
+	endpoint, err = nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
+		DataId: util.MinioEndpointDataID,
+	})
+	if err != nil {
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "upload object to bucket err", zap.Any("err_msg", err))
+		return
+	}
+	bucketName, err = nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
+		DataId: util.MinioShareBucketDataID,
+	})
+	if err != nil {
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "upload object to bucket err", zap.Any("err_msg", err))
+		return
+	}
+	return
+}
+
+func (o *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multipart.FileHeader) (fileUrl []string, err error) {
+	filenameAsc, err := genFilenameAscBySnow(len(files))
+	if err != nil {
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "upload file failed", zap.Any("err_msg", err))
+		return nil, errors.New("upload file failed")
 	}
 
 	var wg sync.WaitGroup
@@ -81,18 +101,24 @@ func (receiver *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multi
 			fileSize := files[index].Size
 			filename := files[index].Filename
 			fileExtension := getFileExtensionByFilename(filename)
+			uploadFilename := fmt.Sprintf("%d.%s", filenameAsc[index], fileExtension)
 			uploadContentType := getUploadContentType(fileExtension)
-			// 文件唯一id: 雪花id.文件后缀
-			uploadFilename := fmt.Sprintf("%d.%s", snowNode.GetId(), fileExtension)
 
-			_, err = minioClient.PutObject(ctx, util.BucketName, uploadFilename, file, fileSize, minio.PutObjectOptions{ContentType: uploadContentType})
+			minioEndpoint, bucketName, err := getMinioEndpointAndBucketName(ctx)
+			if err != nil {
+				return
+			}
+			_, err = myMinio.GetMinioClient().PutObject(ctx, bucketName, uploadFilename, file, fileSize, minio.PutObjectOptions{ContentType: uploadContentType})
 			if err != nil {
 				logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "upload object to bucket err", zap.Any("err_msg", err))
 				return
 			}
-			fileUrl = append(fileUrl, fmt.Sprintf("%s:%s/%s/%s", util.MinioNetProtocol, util.MinioEndpoint, util.BucketName, uploadFilename))
+			fileUrl = append(fileUrl, fmt.Sprintf("%s:%s/%s/%s", util.MinioNetProtocol, minioEndpoint, bucketName, uploadFilename))
 		}(index)
 	}
 	wg.Wait()
+	if err != nil {
+		return fileUrl, errors.New("upload file failed")
+	}
 	return
 }

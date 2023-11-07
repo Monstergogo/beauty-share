@@ -6,8 +6,9 @@ import (
 	pb "github.com/Monstergogo/beauty-share/api/protobuf-spec"
 	"github.com/Monstergogo/beauty-share/init/db"
 	"github.com/Monstergogo/beauty-share/init/logger"
+	"github.com/Monstergogo/beauty-share/init/minio"
 	"github.com/Monstergogo/beauty-share/init/nacos"
-	"github.com/Monstergogo/beauty-share/internal/app"
+	grpc2 "github.com/Monstergogo/beauty-share/internal/app"
 	"github.com/Monstergogo/beauty-share/internal/repo_interface"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/gin-gonic/gin"
@@ -53,9 +54,10 @@ func InitServer() MicroServer {
 		LogFilepath: util.LogPath,
 		ErrFilepath: util.ErrPath,
 	})
-	ginServer := gin.Default()
-	db.InitMongoDB()
 	nacos.InitNacos()
+	db.InitMongoDB()
+	minio.InitMinio()
+	ginServer := gin.Default()
 	return MicroServer{GinServer: ginServer}
 }
 
@@ -127,7 +129,7 @@ func (m MicroServer) RunServer() {
 			logger.GetLogger().Error("grpc server listen err", zap.Any("err", err))
 			return
 		}
-		pb.RegisterShareServiceServer(srv, &app.ShareServiceImpl{
+		pb.RegisterShareServiceServer(srv, &grpc2.ShareServiceImpl{
 			MongoRepo: repo_interface.MongoRepoProvider(),
 		})
 		if err = srv.Serve(listener); err != nil {

@@ -27,19 +27,19 @@ type Worker struct {
 }
 
 // NewWorker 雪花算法初始化，用于生成唯一id
-func NewWorker(workerId int64) (*Worker, error) {
+func NewWorker(workerId int64) (Worker, error) {
 	if workerId < 0 || workerId > workerMax {
-		return nil, errors.New("worker ID excess of quantity")
+		return Worker{}, errors.New("worker ID excess of quantity")
 	}
 	// 生成一个新节点
-	return &Worker{
+	return Worker{
 		timestamp: 0,
 		workerId:  workerId,
 		number:    0,
 	}, nil
 }
 
-func (w *Worker) GetId() int64 {
+func (w Worker) GetId() int64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	now := time.Now().UnixNano() / 1e6

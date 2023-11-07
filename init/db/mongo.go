@@ -3,36 +3,87 @@ package db
 import (
 	"context"
 	"github.com/Monstergogo/beauty-share/init/logger"
+	"github.com/Monstergogo/beauty-share/init/nacos"
 	"github.com/Monstergogo/beauty-share/util"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"sync"
 	"time"
 )
 
-var mongoDB *mongo.Client
+type mongoClientStruct struct {
+	Client *mongo.Client
+	Lock   *sync.RWMutex
+}
+
+var mongoClient mongoClientStruct
+
+func mongoDBConnectAndCheckHearty(ctx context.Context, mongoUri string) (*mongo.Client, error) {
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUri))
+	if err != nil {
+		return client, err
+	}
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		return client, err
+	}
+	return client, err
+}
 
 func InitMongoDB() {
-	var err error
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	mongoDB, err = mongo.Connect(ctx, options.Client().ApplyURI(util.MongoURI))
+	mongoUri, err := nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
+		DataId: util.MongoUriDataID,
+	})
 	if err != nil {
 		panic(err)
 	}
-	err = mongoDB.Ping(ctx, nil)
+
+	client, err := mongoDBConnectAndCheckHearty(ctx, mongoUri)
 	if err != nil {
 		panic(err)
 	}
+
+	mongoClient = mongoClientStruct{
+		Client: client,
+		Lock:   new(sync.RWMutex),
+	}
+	// 监听mongo_uri变化，建立新连接
+	nacos.GetNacosConfigClient().ListenConfig(vo.ConfigParam{
+		DataId: util.MongoUriDataID,
+		OnChange: func(namespace, group, dataId, data string) {
+			c, err := mongoDBConnectAndCheckHearty(ctx, data)
+			if err != nil {
+				logger.GetLogger().Error("mongo uri changed but connected err", zap.Any("err_msg", err))
+				return
+			}
+			DisconnectMongoDB()
+			SetMongoDBClient(c)
+		},
+	})
 	logger.GetLogger().Info("mongo db connected success")
 }
 
 func GetMongoDB() *mongo.Client {
-	return mongoDB
+	mongoClient.Lock.RLock()
+	defer mongoClient.Lock.RUnlock()
+
+	return mongoClient.Client
+}
+
+// SetMongoDBClient 更新mongo client
+func SetMongoDBClient(client *mongo.Client) {
+	mongoClient.Lock.Lock()
+	defer mongoClient.Lock.Unlock()
+
+	mongoClient.Client = client
 }
 
 func DisconnectMongoDB() error {
-	if err := mongoDB.Disconnect(context.Background()); err != nil {
+	if err := mongoClient.Client.Disconnect(context.Background()); err != nil {
 		logger.GetLogger().Error("disconnect mongo db err:%v", zap.Any("err", err))
 		return err
 	}
