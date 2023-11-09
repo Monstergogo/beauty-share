@@ -28,13 +28,23 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 	findOptions.SetSort(bson.M{"created_at": -1})
 
 	collection := db.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
-	filter := bson.D{{"_id", bson.M{"$gt": lastId}}}
+	filter := bson.D{}
+	total, err := collection.CountDocuments(ctx, filter)
+	if err != nil {
+		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page repo err", zap.Any("err_msg", err))
+		return total, res, err
+	}
+
+	if !lastId.IsZero() {
+		filter = bson.D{{"_id", bson.M{"$gt": lastId}}}
+	}
 	cur, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page err", zap.Any("err_smg", err))
 		return total, res, err
 	}
 	defer cur.Close(ctx)
+
 	res = make([]*entity.ShareInfo, 0)
 	for cur.Next(ctx) {
 		var temp *entity.ShareInfo
@@ -43,11 +53,6 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 			return total, res, err
 		}
 		res = append(res, temp)
-	}
-	total, err = collection.CountDocuments(ctx, filter)
-	if err != nil {
-		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page repo err", zap.Any("err_msg", err))
-		return total, res, err
 	}
 	return total, res, err
 }

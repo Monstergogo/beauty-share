@@ -39,14 +39,21 @@ func (s ShareServiceImpl) AddShare(ctx context.Context, in *pb.AddShareReq) (*pb
 }
 
 func (s ShareServiceImpl) GetShareByPage(ctx context.Context, in *pb.GetShareByPageReq) (*pb.GetShareByPageResp, error) {
-	var resp *pb.GetShareByPageResp
-	if in.GetLastId() == "" || in.GetPageSize() == 0 {
+	var (
+		resp *pb.GetShareByPageResp
+		err  error
+	)
+	if in.GetPageSize() == 0 {
 		return resp, errors.New("params err")
 	}
-	lastId, err := primitive.ObjectIDFromHex(in.LastId)
-	if err != nil {
-		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "trans to object id err", zap.Any("err_msg", err))
-		return resp, errors.New("lastId err")
+
+	var lastId primitive.ObjectID
+	if in.GetLastId() != "" {
+		lastId, err = primitive.ObjectIDFromHex(in.LastId)
+		if err != nil {
+			logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "last id trans to object id err", zap.Any("err_msg", err))
+			return resp, errors.New("lastId trans err")
+		}
 	}
 	total, queryItem, err := s.MongoRepo.GetShareByPage(ctx, lastId, in.PageSize)
 	if err != nil {

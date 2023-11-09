@@ -1,0 +1,88 @@
+version: "3"
+
+services:
+  minio:
+    container_name: minio-server
+    image: quay.io/minio/minio
+    ports:
+      - "9000:9000"
+      - "9099:9099"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: root           # minio 管理端初始账号
+      MINIO_ROOT_PASSWORD: root1234   # minio 管理端初始密码
+    command: server /data --console-address ":9099"
+    networks:
+      share:
+
+  nacos:
+    image: nacos/nacos-server:v2.2.3-slim
+    container_name: nacos-standalone-mysql
+    env_file:
+      - ./conf/nacos/nacos-standlone-mysql.env
+    volumes:
+      - nacos-standalone-logs:/home/nacos/logs
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    healthcheck:
+      test: [ "CMD", "curl", "nacos:8848" ]
+      interval: 4s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: always
+    networks:
+      share:
+
+  mysql:
+    container_name: mysql
+    build:
+      context: .
+      dockerfile: ./conf/mysql_8/Dockerfile
+    image: example/mysql:8.0.30
+    env_file:
+      - ./conf/mysql_8/mysql.env
+    volumes:
+      - mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      share:
+
+  mongodb:
+    container_name: mongodb
+    image: mongo
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root123
+      MONGO_INITDB_DATABASE: share
+    volumes:
+      - mongo_data:/data/db
+      - ./conf/mongo/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro      # mongo 容器启动执行脚本，用于初始化db和用户
+    networks:
+      share:
+
+networks:
+  share:
+    driver: bridge
+
+volumes:
+  minio_data:
+    driver: local
+  mysql:
+    driver: local
+  nacos-standalone-logs:
+    driver: local
+  mongo_data:
+    driver: local

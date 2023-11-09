@@ -23,4 +23,9 @@ func InitRouter(s server.MicroServer) {
 		Method:  util.HttpMethodPost,
 		Handler: toGinHandler(OssUpload),
 	})
+	s.RegisterGinRouter(server.HttpServerRouter{
+		Path:    "v1/ping",
+		Method:  util.HttpMethodGet,
+		Handler: toGinHandler(Ping),
+	})
 }

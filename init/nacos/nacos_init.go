@@ -48,6 +48,7 @@ func InitNacos() {
 	if err = GetConfFromYaml(util.NacosConfPath, &nacosConf); err != nil {
 		panic(err)
 	}
+
 	nacosConf.ServerAddr = os.Getenv(util.NacosServerAddrEnvKey)
 	if nacosConf.ServerAddr == "" {
 		nacosConf.ServerAddr = "127.0.0.1"
