@@ -16,7 +16,6 @@ const (
 	timeShift   uint8 = workerBits + numberBits
 	workerShift uint8 = numberBits
 	startTime   int64 = 1698400286000
-	CtxTraceId        = "traceId"
 )
 
 type Worker struct {
@@ -59,7 +58,7 @@ func (w Worker) GetId() int64 {
 }
 
 func GetTraceIdFromCtx(ctx context.Context) string {
-	traceId := ctx.Value(CtxTraceId)
+	traceId := ctx.Value(CtxTraceID)
 	if traceId == nil {
 		return ""
 	}

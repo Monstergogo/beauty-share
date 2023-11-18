@@ -1,10 +1,12 @@
 package util
 
 const (
-	MinioNetProtocol = "http"
-	GinServerPort    = 5008
-	GrpcServerPort   = 5018
-	GrpcServiceName  = "share.ShareService"
+	MinioNetProtocol   = "http"
+	GinServerPort      = 5008
+	GrpcServerPort     = 5018
+	GrpcServiceName    = "share.ShareService"
+	TracingServiceName = "share-service"
+	ServiceVersion     = "v0.1.2"
 )
 
 type HttpMethod string
@@ -17,7 +19,7 @@ const (
 	HttpMethodPatch  = HttpMethod("PATCH")
 )
 
-const CtxTraceID = "traceId"
+const CtxTraceID = "trace_id"
 
 const FileUploadRequestName = "files"
 
@@ -44,3 +46,5 @@ const (
 	NacosServerAddrEnvKey = "NACOS_SERVER_ADDR"
 	NacosServerPortEnvKey = "NACOS_SERVER_PORT"
 )
+
+const OTLPCollectorGrpcAddr = "localhost:4317"

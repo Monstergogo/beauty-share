@@ -29,15 +29,16 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 
 	collection := db.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
 	filter := bson.D{}
+	if !lastId.IsZero() {
+		filter = bson.D{{"_id", bson.M{"$gt": lastId}}}
+	}
+
 	total, err := collection.CountDocuments(ctx, filter)
 	if err != nil {
 		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page repo err", zap.Any("err_msg", err))
 		return total, res, err
 	}
 
-	if !lastId.IsZero() {
-		filter = bson.D{{"_id", bson.M{"$gt": lastId}}}
-	}
 	cur, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "get share info by page err", zap.Any("err_smg", err))

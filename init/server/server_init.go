@@ -8,13 +8,19 @@ import (
 	"github.com/Monstergogo/beauty-share/init/logger"
 	"github.com/Monstergogo/beauty-share/init/minio"
 	"github.com/Monstergogo/beauty-share/init/nacos"
+	"github.com/Monstergogo/beauty-share/init/tracing"
 	grpc2 "github.com/Monstergogo/beauty-share/internal/app"
 	"github.com/Monstergogo/beauty-share/internal/repo_interface"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"net"
 	"net/http"
 	"os"
@@ -49,6 +55,22 @@ func (m MicroServer) RegisterGinRouter(router HttpServerRouter) {
 	}
 }
 
+func reqLoggerMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		traceId := c.GetHeader(util.CtxTraceID)
+		if traceId == "" {
+			uuID, _ := uuid.NewRandom()
+			traceId = uuID.String()
+		}
+		c.Set(util.CtxTraceID, traceId)
+		reqBody, _ := c.GetRawData()
+
+		logger.LogWithTraceId(c, zapcore.InfoLevel, "req info", zap.Any("method", c.Request.Method), zap.Any("req_uri", c.Request.RequestURI),
+			zap.Any("req_body", reqBody))
+		c.Next()
+	}
+}
+
 func InitServer() MicroServer {
 	logger.InitLogger(logger.LogConf{
 		LogFilepath: util.LogPath,
@@ -57,7 +79,11 @@ func InitServer() MicroServer {
 	nacos.InitNacos()
 	db.InitMongoDB()
 	minio.InitMinio()
+	tracing.InitProvider()
+
 	ginServer := gin.Default()
+	ginServer.Use(reqLoggerMiddleware())
+	ginServer.Use(otelgin.Middleware(util.TracingServiceName))
 	return MicroServer{GinServer: ginServer}
 }
 
@@ -122,7 +148,8 @@ func (m MicroServer) RunServer() {
 		}
 	}()
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.UnaryInterceptor(reqLogInterceptor()),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()))
 	go func() {
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", util.GrpcServerPort))
 		if err != nil {
@@ -163,7 +190,7 @@ func waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStar
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		if err := ginServer.Shutdown(ctx); err != nil {
@@ -179,6 +206,39 @@ func waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStar
 		deRegisterService()
 		return
 	}()
+
+	go func() {
+		defer wg.Done()
+		for _, fn := range tracing.Shutdowns {
+			if err := fn(ctx); err != nil {
+				logger.GetLogger().Error("failed to shutdown TracerProvider", zap.Any("err_mgs", err))
+			}
+		}
+		return
+	}()
 	wg.Wait()
 	logger.GetLogger().Info("server shutdown success")
+}
+
+// 打印请求日志并生成tracing
+func reqLogInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			md = metadata.Pairs()
+		}
+
+		// Set trace id for context
+		traceIDs := md[util.CtxTraceID]
+		if len(traceIDs) > 0 {
+			ctx = context.WithValue(ctx, util.CtxTraceID, traceIDs[0])
+		} else {
+			// Generate trace id and set context if not exists.
+			traceID, _ := uuid.NewRandom()
+			ctx = context.WithValue(ctx, util.CtxTraceID, traceID.String())
+		}
+		logger.LogWithTraceId(ctx, zapcore.InfoLevel, "grpc req msg", zap.Any("method", info.FullMethod), zap.Any("params", req))
+
+		return handler(ctx, req)
+	}
 }
