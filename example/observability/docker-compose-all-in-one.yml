@@ -20,7 +20,7 @@ services:
       - backend
     image: otel/opentelemetry-collector-contrib:latest
     volumes:
-      - ${OTEL_CONFIG_SRC:-./conf/otel-collector-config-connector.yml}:/etc/otelcol/otel-collector-config.yml
+      - ${OTEL_CONFIG_SRC:-./conf/otel-collector-config-connector-all-in-one.yml}:/etc/otelcol/otel-collector-config.yml
     command: --config /etc/otelcol/otel-collector-config.yml
     depends_on:
       - jaeger
