@@ -18,7 +18,7 @@ services:
   otel_collector:
     networks:
       - backend
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.80.0
     volumes:
       - ${OTEL_CONFIG_SRC:-./conf/otel-collector-config-connector-all-in-one.yml}:/etc/otelcol/otel-collector-config.yml
     command: --config /etc/otelcol/otel-collector-config.yml
