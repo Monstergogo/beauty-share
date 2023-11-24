@@ -1,9 +1,9 @@
-version: "3"
+version: "3.7"
 
 services:
   apisix-dashboard:
     container_name: apisix-dashboard
-    image: apache/apisix-dashboard:3.0.1-alpine
+    image: apache/apisix-dashboard:latest
     restart: always
     volumes:
       - ./conf/apisix/apisix-dashboard.yaml:/usr/local/apisix-dashboard/conf/conf.yaml
@@ -14,13 +14,12 @@ services:
 
   apisix:
     container_name: apisix
-    image: apache/apisix:3.5.0-debian
+    image: apache/apisix:latest
     restart: always
     volumes:
       - ./conf/apisix/apisix.yaml:/usr/local/apisix/conf/config.yaml:ro
     depends_on:
       - etcd
-      - apisix-seed
     ports:
       - "9180:9180/tcp"
       - "9080:9080/tcp"
@@ -53,62 +52,6 @@ services:
     networks:
       apisix:
 
-  apisix-seed:
-    container_name: apisix-seed
-    build:
-      context: .
-      dockerfile: conf/apisix/Dockerfile
-    volumes:
-      - ./conf/apisix/apisix-seed.yaml:/usr/local/apisix-seed/conf/conf.yaml
-    depends_on:
-      nacos:
-        condition: service_healthy
-      etcd:
-        condition: service_healthy
-    networks:
-      apisix:
-
-  postgres:
-    container_name: wolf-database
-    image: postgres:13
-    restart: always
-    environment:
-      POSTGRES_USER: wolfroot
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: wolf
-    volumes:
-      - ./conf/postgres/db-psql.sql:/docker-entrypoint-initdb.d/db.sql:ro
-    networks:
-      apisix:
-
-  redis:
-    container_name: wolf-cache
-    image: redis:5.0
-    restart: always
-    networks:
-      apisix:
-
-  wolf:
-    container_name: wolf-server
-    image: igeeky/wolf-server
-    restart: always
-    ports:
-      - "12180:12180"
-    depends_on:
-      - postgres
-    environment:
-      RBAC_ROOT_PASSWORD: wolf-123456
-      RBAC_TOKEN_KEY: f40215a5f25cbb6d36df07629aaf1172240fe48d
-      WOLF_CRYPT_KEY: fbd4962351924792cb5e5b131435cd30b24e3570
-      RBAC_SQL_URL: postgres://wolfroot:123456@postgres:5432/wolf
-      RBAC_REDIS_URL: redis://redis:6379/0
-      MEM_CACHE_BY_REDIS: yes
-      CLIENT_CHANGE_PWD: no
-      RBAC_TOKEN_EXPIRE_TIME: 36000   # 登录接口返回的token的有效期, 默认为30天. 单位为秒.
-    command: npm run start
-    networks:
-      apisix:
-
   minio:
     container_name: minio-server
     image: quay.io/minio/minio
@@ -121,48 +64,6 @@ services:
       MINIO_ROOT_USER: root           # minio 管理端初始账号
       MINIO_ROOT_PASSWORD: root1234   # minio 管理端初始密码
     command: server /data --console-address ":9099"
-    networks:
-      apisix:
-
-  nacos:
-    image: nacos/nacos-server:v2.2.3-slim
-    container_name: nacos-standalone-mysql
-    env_file:
-      - ./conf/nacos/nacos-standlone-mysql.env
-    volumes:
-      - nacos-standalone-logs:/home/nacos/logs
-    ports:
-      - "8848:8848"
-      - "9848:9848"
-    healthcheck:
-      test: [ "CMD", "curl", "nacos:8848" ]
-      interval: 4s
-      timeout: 5s
-      retries: 10
-    depends_on:
-      mysql:
-        condition: service_healthy
-    restart: always
-    networks:
-      apisix:
-
-  mysql:
-    container_name: mysql
-    build:
-      context: .
-      dockerfile: ./conf/mysql_8/Dockerfile
-    image: example/mysql:8.0.30
-    env_file:
-      - ./conf/mysql_8/mysql.env
-    volumes:
-      - mysql:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    healthcheck:
-      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       apisix:
 
@@ -181,6 +82,32 @@ services:
     networks:
       apisix:
 
+  consul-server:
+    image: hashicorp/consul:latest
+    container_name: consul-server
+    restart: always
+    volumes:
+      - ./conf/consul/server.json:/consul/config/server.json:ro
+      - consul_data:/consul/data
+    networks:
+      apisix:
+    ports:
+      - "8500:8500"
+      - "8600:8600/tcp"
+      - "8600:8600/udp"
+    command: "agent"
+
+  consul-client:
+    image: hashicorp/consul:latest
+    container_name: consul-client
+    restart: always
+    volumes:
+      - ./conf/consul/client.json:/consul/config/client.json:ro
+      - consul_data:/consul/data
+    networks:
+      apisix:
+    command: "agent"
+
 networks:
   apisix:
     driver: bridge
@@ -188,11 +115,9 @@ networks:
 volumes:
   minio_data:
     driver: local
-  mysql:
-    driver: local
-  nacos-standalone-logs:
-    driver: local
   mongo_data:
     driver: local
   etcd_data:
+    driver: local
+  consul_data:
     driver: local

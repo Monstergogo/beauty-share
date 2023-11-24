@@ -3,7 +3,9 @@ package util
 import (
 	"context"
 	"errors"
+	"gopkg.in/yaml.v3"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -86,4 +88,15 @@ func GetCurrIp() (string, error) {
 	}
 
 	return "", errors.New("can not find the client ip address")
+}
+
+// GetConfFromYaml
+// @desc 从yaml文件中读取配置
+func GetConfFromYaml(path string, config interface{}) error {
+	dataBytes, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	err = yaml.Unmarshal(dataBytes, config)
+	return err
 }

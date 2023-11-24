@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	pb "github.com/Monstergogo/beauty-share/api/protobuf-spec"
+	"github.com/Monstergogo/beauty-share/conf"
 	"github.com/Monstergogo/beauty-share/init/db"
 	"github.com/Monstergogo/beauty-share/init/logger"
 	"github.com/Monstergogo/beauty-share/init/minio"
@@ -19,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -50,18 +53,14 @@ func (m MicroServer) RegisterGinRouter(router HttpServerRouter) {
 }
 
 func InitServer() MicroServer {
-	logger.InitLogger(logger.LogConf{
-		LogFilepath: util.LogPath,
-		ErrFilepath: util.ErrPath,
-	})
-	nacos.InitNacos()
+	logger.InitLogger(conf.ServerConf.Log.LogPath, conf.ServerConf.Log.ErrPath)
 	db.InitMongoDB()
 	minio.InitMinio()
 	ginServer := gin.Default()
 	return MicroServer{GinServer: ginServer}
 }
 
-// 注册service
+// 注册service to nacos
 func registerService() error {
 	namingClient := nacos.GetNacosNamingClient()
 	instanceParams := vo.RegisterInstanceParam{
@@ -86,7 +85,7 @@ func registerService() error {
 	return err
 }
 
-// 注销service实例
+// 从nacos 注销service实例
 func deRegisterService() error {
 	namingClient := nacos.GetNacosNamingClient()
 	instanceParams := vo.DeregisterInstanceParam{
@@ -104,6 +103,61 @@ func deRegisterService() error {
 		return err
 	}
 	logger.GetLogger().Info("deregister grpc service success", zap.Any("deregister result", success))
+	return err
+}
+
+type registerToConsulPayload struct {
+	ID                string                 `json:"ID"`
+	Name              string                 `json:"Name"`
+	Tags              []string               `json:"Tags"`
+	Address           string                 `json:"Address"`
+	Port              int                    `json:"Port"`
+	Meta              map[string]string      `json:"Meta"`
+	EnableTagOverride bool                   `json:"EnableTagOverride"`
+	Check             map[string]interface{} `json:"Check"`
+	Weights           map[string]int         `json:"Weights"`
+}
+
+// 注册grpc服务到consul
+func registerServiceToConsul() error {
+	payload := registerToConsulPayload{
+		Name: util.GrpcServiceName,
+		Port: util.GrpcServerPort,
+		Tags: []string{"share", "v1"},
+		Meta: map[string]string{"version": "0.1.1"},
+	}
+
+	currIp, err := util.GetCurrIp()
+	if err != nil {
+		return err
+	}
+	payload.Address = currIp
+	// health check接口设置为http://localhost:5008/v1/ping，由于consul通过docker容器启动bridge，
+	// 服务在本地运行，要想consul能访问到ping接口，需要将localhost换成host.docker.internal
+	healthCheck := map[string]interface{}{
+		"DeregisterCriticalServiceAfter": "90m",
+		"HTTP":                           fmt.Sprintf("http://host.docker.internal:%d/v1/ping", util.GinServerPort),
+		"Interval":                       "10s",
+		"Timeout":                        "5s",
+	}
+	payload.Check = healthCheck
+	registerUrl := fmt.Sprintf("%s/v1/agent/service/register?replace-existing-checks=true", conf.ServerConf.Consul.Endpoint)
+	payloadMarshal, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	req, _ := http.NewRequest("PUT", registerUrl, strings.NewReader(string(payloadMarshal)))
+	req.Header.Add("Content-Type", "application/json")
+	_, err = http.DefaultClient.Do(req)
+	return err
+}
+
+// 从consul取消register
+func deregisterServiceToConsul() error {
+	registerUrl := fmt.Sprintf("%s/v1/agent/service/deregister/%s", conf.ServerConf.Consul.Endpoint, util.GrpcServiceName)
+	req, _ := http.NewRequest("PUT", registerUrl, nil)
+	req.Header.Add("Content-Type", "application/json")
+	_, err := http.DefaultClient.Do(req)
 	return err
 }
 
@@ -139,11 +193,11 @@ func (m MicroServer) RunServer() {
 		}
 	}()
 	time.Sleep(1 * time.Second)
-	// 注册grpc服务到nacos
-	if err := registerService(); err != nil {
+
+	// 注册grpc服务到consul
+	if err := registerServiceToConsul(); err != nil {
 		logger.GetLogger().Error("register service instance err", zap.Any("err_msg", err))
 		serverStartErrChan <- err
-		return
 	}
 	waitSignalClose(&httpServer, srv, serverStartErrChan)
 }
@@ -176,7 +230,7 @@ func waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStar
 	go func() {
 		defer wg.Done()
 		grpcServer.GracefulStop()
-		deRegisterService()
+		deregisterServiceToConsul()
 		return
 	}()
 	wg.Wait()

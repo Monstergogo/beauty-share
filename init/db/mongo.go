@@ -2,10 +2,8 @@ package db
 
 import (
 	"context"
+	"github.com/Monstergogo/beauty-share/conf"
 	"github.com/Monstergogo/beauty-share/init/logger"
-	"github.com/Monstergogo/beauty-share/init/nacos"
-	"github.com/Monstergogo/beauty-share/util"
-	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
@@ -35,14 +33,14 @@ func mongoDBConnectAndCheckHearty(ctx context.Context, mongoUri string) (*mongo.
 func InitMongoDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	mongoUri, err := nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
-		DataId: util.MongoUriDataID,
-	})
-	if err != nil {
-		panic(err)
-	}
+	//mongoUri, err := nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
+	//	DataId: util.MongoUriDataID,
+	//})
+	//if err != nil {
+	//	panic(err)
+	//}
 
-	client, err := mongoDBConnectAndCheckHearty(ctx, mongoUri)
+	client, err := mongoDBConnectAndCheckHearty(ctx, conf.ServerConf.Mongo.Uri)
 	if err != nil {
 		panic(err)
 	}
@@ -52,18 +50,18 @@ func InitMongoDB() {
 		Lock:   new(sync.RWMutex),
 	}
 	// 监听mongo_uri变化，建立新连接
-	nacos.GetNacosConfigClient().ListenConfig(vo.ConfigParam{
-		DataId: util.MongoUriDataID,
-		OnChange: func(namespace, group, dataId, data string) {
-			c, err := mongoDBConnectAndCheckHearty(ctx, data)
-			if err != nil {
-				logger.GetLogger().Error("mongo uri changed but connected err", zap.Any("err_msg", err))
-				return
-			}
-			DisconnectMongoDB()
-			SetMongoDBClient(c)
-		},
-	})
+	//nacos.GetNacosConfigClient().ListenConfig(vo.ConfigParam{
+	//	DataId: util.MongoUriDataID,
+	//	OnChange: func(namespace, group, dataId, data string) {
+	//		c, err := mongoDBConnectAndCheckHearty(ctx, data)
+	//		if err != nil {
+	//			logger.GetLogger().Error("mongo uri changed but connected err", zap.Any("err_msg", err))
+	//			return
+	//		}
+	//		DisconnectMongoDB()
+	//		SetMongoDBClient(c)
+	//	},
+	//})
 	logger.GetLogger().Info("mongo db connected success")
 }
 

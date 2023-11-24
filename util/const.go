@@ -38,9 +38,18 @@ const (
 
 const (
 	NacosConfPath = "conf/nacos.yaml"
+	ConfPath      = "conf/conf.yaml"
 )
 
 const (
 	NacosServerAddrEnvKey = "NACOS_SERVER_ADDR"
 	NacosServerPortEnvKey = "NACOS_SERVER_PORT"
+)
+
+const (
+	ConsulServerAddrEnvKey = "CONSUL_SERVER_ADDR"
+	ConsulConfigPrefix     = "beauty-share"
+	ConsulConfigBucketName = "beauty-share/cos-bucket-name"
+	ConsulConfigMinio      = "beauty-share/minio"
+	ConsulConfigMongo      = "beauty-share/mongo"
 )

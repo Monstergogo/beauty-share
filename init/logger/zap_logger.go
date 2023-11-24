@@ -37,14 +37,14 @@ func getLogWriter(filepath string) zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberJackLogger)
 }
 
-func InitLogger(conf LogConf) {
+func InitLogger(logPath, errPath string) {
 	encoder := getEncoder()
 	// 记录全量日志
-	coreLog := zapcore.NewCore(encoder, getLogWriter(conf.LogFilepath), zapcore.DebugLevel)
+	coreLog := zapcore.NewCore(encoder, getLogWriter(logPath), zapcore.DebugLevel)
 	var core, coreErr zapcore.Core
-	if len(conf.ErrFilepath) > 0 {
+	if len(errPath) > 0 {
 		// err日志除了保存在conf.LogFilepath, 还会单独保存在一个文件
-		coreErr = zapcore.NewCore(encoder, getLogWriter(conf.ErrFilepath), zapcore.ErrorLevel)
+		coreErr = zapcore.NewCore(encoder, getLogWriter(errPath), zapcore.ErrorLevel)
 		core = zapcore.NewTee(coreLog, coreErr)
 	} else {
 		core = coreLog

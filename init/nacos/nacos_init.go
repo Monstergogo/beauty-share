@@ -8,7 +8,6 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
-	"gopkg.in/yaml.v3"
 	"os"
 	"strconv"
 )
@@ -23,17 +22,6 @@ type Config struct {
 	Port                uint64 `json:"port" yaml:"port"`
 }
 
-// GetConfFromYaml
-// @desc 从yaml文件中读取配置
-func GetConfFromYaml(path string, config interface{}) error {
-	dataBytes, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	err = yaml.Unmarshal(dataBytes, config)
-	return err
-}
-
 var (
 	namingClient naming_client.INamingClient
 	configClient config_client.IConfigClient
@@ -45,7 +33,7 @@ func InitNacos() {
 		nacosConf Config
 		err       error
 	)
-	if err = GetConfFromYaml(util.NacosConfPath, &nacosConf); err != nil {
+	if err = util.GetConfFromYaml(util.NacosConfPath, &nacosConf); err != nil {
 		panic(err)
 	}
 

@@ -1,8 +1,0 @@
-nacos:
-  timeout_ms: 5000               # 请求Nacos服务端的超时时间，默认是10000ms
-  not_load_cache_at_start: true  # 在启动的时候不读取缓存在CacheDir的service信息
-  log_dir: /logs/nacos/log       # 日志存储路径
-  cache_dir: /logs/nacos/cache   # 缓存service信息的目录，默认是当前运行目录
-  log_lever: debug               # 日志默认级别，值必须是：debug,info,warn,error，默认值是info
-  server_addr:                   # Nacos的服务地址, 从环境变量NACOS_SERVER_ADDR获取, 默认127.0.0.1
-  port:                          # Nacos的服务端口, 从环境变量NACOS_SERVER_PORT获取, 默认8848
