@@ -24,16 +24,8 @@ const FileUploadRequestName = "files"
 const (
 	MongoShareDBName       = "share"
 	MongoShareCollectName  = "shares"
-	MongoUriDataID         = "mongo_uri"
 	MinioEndpointDataID    = "minio_endpoint"
-	MinioIDDataID          = "minio_id"
-	MinioSecretDataID      = "minio_secret"
 	MinioShareBucketDataID = "share_bucket_name"
-)
-
-const (
-	LogPath = "logs/access.log"
-	ErrPath = "logs/err.log"
 )
 
 const (
@@ -51,5 +43,5 @@ const (
 	ConsulConfigPrefix     = "beauty-share"
 	ConsulConfigBucketName = "beauty-share/cos-bucket-name"
 	ConsulConfigMinio      = "beauty-share/minio"
-	ConsulConfigMongo      = "beauty-share/mongo"
+	ConsulConfigMongo      = "beauty-share/mongo-uri"
 )

@@ -40,7 +40,7 @@ func InitMongoDB() {
 	//	panic(err)
 	//}
 
-	client, err := mongoDBConnectAndCheckHearty(ctx, conf.ServerConf.Mongo.Uri)
+	client, err := mongoDBConnectAndCheckHearty(ctx, conf.ServerConf.MongoUri)
 	if err != nil {
 		panic(err)
 	}

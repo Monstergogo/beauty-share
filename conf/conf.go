@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 )
 
 type Log struct {
@@ -27,18 +29,12 @@ type minioConf struct {
 	Endpoint string `json:"endpoint"`
 }
 
-type mongoConf struct {
-	Uri         string `json:"uri"`
-	DBName      string `json:"db-name"`
-	CollectName string `json:"collect-name"`
-}
-
 type severConf struct {
 	Log           Log       `json:"log" yaml:"log"`
 	Consul        consul    `json:"consul" yaml:"consul"`
 	CosBucketName string    `json:"cos-bucket-name"`
 	Minio         minioConf `json:"minio"`
-	Mongo         mongoConf `json:"mongo"`
+	MongoUri      string    `json:"mongo-uri" yaml:"mongo-uri"`
 }
 
 type consulKVStoreReadResp struct {
@@ -51,6 +47,9 @@ type consulKVStoreReadResp struct {
 }
 
 var ServerConf *severConf
+
+// Cache 缓存配置
+var Cache sync.Map
 
 func init() {
 	ServerConf = &severConf{}
@@ -81,6 +80,7 @@ func readKeyFromConsulKVStore(url string) error {
 
 	for _, d := range respData {
 		decodeValue, _ := base64.StdEncoding.DecodeString(d.Value)
+		Cache.Store(strings.Split(d.Key, "/")[1], decodeValue)
 		switch d.Key {
 		case util.ConsulConfigBucketName:
 			ServerConf.CosBucketName = string(decodeValue)
@@ -90,10 +90,7 @@ func readKeyFromConsulKVStore(url string) error {
 				return err
 			}
 		case util.ConsulConfigMongo:
-			err = json.Unmarshal(decodeValue, &ServerConf.Mongo)
-			if err != nil {
-				return err
-			}
+			ServerConf.MongoUri = string(decodeValue)
 		default:
 			continue
 		}

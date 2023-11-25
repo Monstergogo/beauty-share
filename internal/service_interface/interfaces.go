@@ -14,3 +14,7 @@ type ShareService interface {
 	AddShare(ctx context.Context, in *pb.AddShareReq) (*pb.AddShareResp, error)
 	GetShareByPage(ctx context.Context, in *pb.GetShareByPageReq) (*pb.GetShareByPageResp, error)
 }
+
+type ConfigService interface {
+	GetStringValueByKeyName(ctx context.Context, key string) (string, error)
+}

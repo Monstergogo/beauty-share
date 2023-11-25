@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Monstergogo/beauty-share/conf"
 	"github.com/Monstergogo/beauty-share/init/logger"
 	myMinio "github.com/Monstergogo/beauty-share/init/minio"
 	"github.com/Monstergogo/beauty-share/init/nacos"
@@ -58,7 +59,7 @@ func genFilenameAscBySnow(fileNum int) ([]int64, error) {
 	return res, err
 }
 
-// 获取endpoint和bucket配置信息
+// 从consul获取endpoint和bucket配置信息
 func getMinioEndpointAndBucketName(ctx context.Context) (endpoint, bucketName string, err error) {
 	endpoint, err = nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
 		DataId: util.MinioEndpointDataID,
@@ -104,7 +105,7 @@ func (o *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multipart.Fi
 			uploadFilename := fmt.Sprintf("%d.%s", filenameAsc[index], fileExtension)
 			uploadContentType := getUploadContentType(fileExtension)
 
-			minioEndpoint, bucketName, err := getMinioEndpointAndBucketName(ctx)
+			minioEndpoint, bucketName := conf.ServerConf.Minio.Endpoint, conf.ServerConf.CosBucketName
 			if err != nil {
 				return
 			}

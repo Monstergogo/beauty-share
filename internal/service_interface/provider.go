@@ -14,3 +14,7 @@ func ShareServiceProvider(mongoDB repo_interface.MongoRepo) ShareService {
 		MongoRepo: mongoDB,
 	}
 }
+
+func ConfigServiceProvider() ConfigService {
+	return &app.ConfigServiceImpl{}
+}

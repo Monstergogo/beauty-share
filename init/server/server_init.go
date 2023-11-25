@@ -132,11 +132,10 @@ func registerServiceToConsul() error {
 		return err
 	}
 	payload.Address = currIp
-	// health check接口设置为http://localhost:5008/v1/ping，由于consul通过docker容器启动bridge，
-	// 服务在本地运行，要想consul能访问到ping接口，需要将localhost换成host.docker.internal
+	// 配置health check http接口
 	healthCheck := map[string]interface{}{
 		"DeregisterCriticalServiceAfter": "90m",
-		"HTTP":                           fmt.Sprintf("http://host.docker.internal:%d/v1/ping", util.GinServerPort),
+		"HTTP":                           fmt.Sprintf("http://%s:%d/v1/ping", currIp, util.GinServerPort),
 		"Interval":                       "10s",
 		"Timeout":                        "5s",
 	}

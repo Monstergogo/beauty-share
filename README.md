@@ -1,8 +1,8 @@
 # beauty-share
 a toy application for test, used minio to store images and mongo db as store backend.
 
-discovery: [nacos-go](https://github.com/nacos-group/nacos-sdk-go) \
-gate-way: [apisix](https://github.com/apache/apisix)
+discovery: [consul](https://developer.hashicorp.com/consul) \
+api gateway: [apisix](https://github.com/apache/apisix)
 
 interfaces:
 
@@ -16,15 +16,19 @@ interfaces:
 
 ## how to run
 1. ```cd example && docker compose up -d```
-2. open 127.0.0.1:9000 in browser, create a minio bucket and create access key
-3. open 127.0.0.1:8848 in browser, in nacos console, config info like this:
+2. open http://127.0.0.1:9000 in browser, create a minio bucket and access key, default **username**: root, **password**: root1234
+3. open http://127.0.0.1:8500/ui in browser(consul ui), select Key/Value, creat a folder named beauty-share and config some key info:
+   - key: **cos-bucket-name**, value: **photos**, config bucket name created in minio console (step 2)
+   - key: **mongo-uri**, value: **mongodb://root:root123@localhost:27017/share**
+   - key: **minio**, value:
+        ```
+        {
+        "id": "SD6p9BBCeaia4fxxx",
+        "secret": "2T84qwUEHmFSqkQOanVMAxlivaxxxx",
+        "endpoint": "localhost:9000"
+        }
+        ```
+      id and secret is minio access info created in step 2.
 
-    | Data_id           | Group         | 配置内容                                         | 内容格式 |
-    |-------------------|---------------|----------------------------------------------|------|
-    | mongo_uri         | DEFAULT_GROUP | mongodb://root:root123@localhost:27017/share | TEXT |
-    | minio_endpoint    | DEFAULT_GROUP | localhost:9000                               | TEXT |
-    | minio_id          | DEFAULT_GROUP | minio access key                             | TEXT |
-    | minio_secret      | DEFAULT_GROUP | minio access secret key                      | TEXT |
-    | share_bucket_name | DEFAULT_GROUP | minio bucket name                            | TEXT |
-
-4. run server in cmd/server/main.go local
+4. run server in cmd/server/main.go local, can see server register successfully in consul ui(http://127.0.0.1:8500/ui/dc1/services)
+5. create route in apisix dashboard: http://127.0.0.1:9005/ and test server

@@ -97,17 +97,6 @@ services:
       - "8600:8600/udp"
     command: "agent"
 
-  consul-client:
-    image: hashicorp/consul:latest
-    container_name: consul-client
-    restart: always
-    volumes:
-      - ./conf/consul/client.json:/consul/config/client.json:ro
-      - consul_data:/consul/data
-    networks:
-      apisix:
-    command: "agent"
-
 networks:
   apisix:
     driver: bridge
