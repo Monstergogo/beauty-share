@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"github.com/Monstergogo/beauty-share/conf"
+	"github.com/Monstergogo/beauty-share/init/conf"
 	"github.com/Monstergogo/beauty-share/init/logger"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -40,7 +40,7 @@ func InitMongoDB() {
 	//	panic(err)
 	//}
 
-	client, err := mongoDBConnectAndCheckHearty(ctx, conf.ServerConf.MongoUri)
+	client, err := mongoDBConnectAndCheckHearty(ctx, conf.Mongo.Uri)
 	if err != nil {
 		panic(err)
 	}

@@ -19,7 +19,8 @@ func GetOssServer() service_interface.OSSService {
 }
 
 func GetShareServer() service_interface.ShareService {
-	mongoRepo := repo_interface.MongoRepoProvider()
+	client := repo_interface.MongoDBClientProvider()
+	mongoRepo := repo_interface.MongoRepoProvider(client)
 	shareService := service_interface.ShareServiceProvider(mongoRepo)
 	return shareService
 }

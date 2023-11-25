@@ -2,18 +2,19 @@ package repo
 
 import (
 	"context"
-	myDB "github.com/Monstergogo/beauty-share/init/db"
 	"github.com/Monstergogo/beauty-share/init/logger"
 	"github.com/Monstergogo/beauty-share/internal/entity"
 	"github.com/Monstergogo/beauty-share/util"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type MongoRepoImpl struct {
+	DB *mongo.Client
 }
 
 func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.ObjectID, pageSize int64) (int64, []*entity.ShareInfo, error) {
@@ -21,13 +22,12 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 		res   []*entity.ShareInfo
 		total int64
 	)
-	db := myDB.GetMongoDB()
 
 	findOptions := options.Find()
 	findOptions.SetLimit(pageSize)
 	findOptions.SetSort(bson.M{"created_at": -1})
 
-	collection := db.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
+	collection := s.DB.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
 	filter := bson.D{}
 	total, err := collection.CountDocuments(ctx, filter)
 	if err != nil {
@@ -58,8 +58,7 @@ func (s *MongoRepoImpl) GetShareByPage(ctx context.Context, lastId primitive.Obj
 }
 
 func (s *MongoRepoImpl) AddShare(ctx context.Context, shareInfo entity.ShareInfo) error {
-	db := myDB.GetMongoDB()
-	collection := db.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
+	collection := s.DB.Database(util.MongoShareDBName).Collection(util.MongoShareCollectName)
 	_, err := collection.InsertOne(ctx, shareInfo)
 	if err != nil {
 		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "mongo insert one err", zap.Any("err_msg", err))

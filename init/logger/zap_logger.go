@@ -37,7 +37,7 @@ func getLogWriter(filepath string) zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberJackLogger)
 }
 
-func InitLogger(logPath, errPath string) {
+func Init(logPath, errPath string) {
 	encoder := getEncoder()
 	// 记录全量日志
 	coreLog := zapcore.NewCore(encoder, getLogWriter(logPath), zapcore.DebugLevel)

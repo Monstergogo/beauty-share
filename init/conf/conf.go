@@ -14,7 +14,7 @@ import (
 	"sync"
 )
 
-type Log struct {
+type log struct {
 	LogPath string `json:"log_path" yaml:"log_filepath"`
 	ErrPath string `json:"err_path" yaml:"error_log_filepath"`
 }
@@ -23,18 +23,15 @@ type consul struct {
 	Endpoint string `json:"endpoint" yaml:"endpoint"`
 }
 
-type minioConf struct {
+type mongo struct {
+	Uri string `json:"uri" yaml:"mongo_uri"`
+}
+
+type minio struct {
 	ID       string `json:"id"`
 	Secret   string `json:"secret"`
 	Endpoint string `json:"endpoint"`
-}
-
-type severConf struct {
-	Log           Log       `json:"log" yaml:"log"`
-	Consul        consul    `json:"consul" yaml:"consul"`
-	CosBucketName string    `json:"cos-bucket-name"`
-	Minio         minioConf `json:"minio"`
-	MongoUri      string    `json:"mongo-uri" yaml:"mongo-uri"`
+	Bucket   string `json:"bucket"`
 }
 
 type consulKVStoreReadResp struct {
@@ -46,22 +43,34 @@ type consulKVStoreReadResp struct {
 	Value       string `json:"Value"`
 }
 
-var ServerConf *severConf
+type yamlConf struct {
+	Log    *log    `json:"log" yaml:"log"`
+	Consul *consul `json:"consul" yaml:"consul"`
+}
 
 // Cache 缓存配置
-var Cache sync.Map
+var (
+	Cache  sync.Map
+	Minio  *minio
+	Mongo  *mongo
+	Log    *log
+	Consul *consul
+)
 
 func init() {
-	ServerConf = &severConf{}
-	if err := util.GetConfFromYaml(util.ConfPath, &ServerConf); err != nil {
+	conf := &yamlConf{}
+	if err := util.GetConfFromYaml(util.ConfPath, &conf); err != nil {
 		panic(err)
 	}
+
+	Log = conf.Log
+	Consul = conf.Consul
 	consulServerAddr := os.Getenv(util.ConsulServerAddrEnvKey)
 	if consulServerAddr != "" {
-		ServerConf.Consul.Endpoint = consulServerAddr
+		conf.Consul.Endpoint = consulServerAddr
 	}
 
-	err := readKeyFromConsulKVStore(fmt.Sprintf("%s/v1/kv/%s?recurse=true", ServerConf.Consul.Endpoint, util.ConsulConfigPrefix))
+	err := readKeyFromConsulKVStore(fmt.Sprintf("%s/v1/kv/%s?recurse=true", conf.Consul.Endpoint, util.ConsulConfigPrefix))
 	if err != nil {
 		panic(err)
 	}
@@ -82,15 +91,15 @@ func readKeyFromConsulKVStore(url string) error {
 		decodeValue, _ := base64.StdEncoding.DecodeString(d.Value)
 		Cache.Store(strings.Split(d.Key, "/")[1], decodeValue)
 		switch d.Key {
-		case util.ConsulConfigBucketName:
-			ServerConf.CosBucketName = string(decodeValue)
 		case util.ConsulConfigMinio:
-			err = json.Unmarshal(decodeValue, &ServerConf.Minio)
+			Minio = &minio{}
+			err = json.Unmarshal(decodeValue, &Minio)
 			if err != nil {
 				return err
 			}
 		case util.ConsulConfigMongo:
-			ServerConf.MongoUri = string(decodeValue)
+			Mongo = &mongo{}
+			Mongo.Uri = string(decodeValue)
 		default:
 			continue
 		}

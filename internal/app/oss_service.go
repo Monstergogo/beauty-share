@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Monstergogo/beauty-share/conf"
+	"github.com/Monstergogo/beauty-share/init/conf"
 	"github.com/Monstergogo/beauty-share/init/logger"
 	myMinio "github.com/Monstergogo/beauty-share/init/minio"
 	"github.com/Monstergogo/beauty-share/init/nacos"
@@ -105,7 +105,7 @@ func (o *OssServiceImpl) ObjectUpload(ctx context.Context, files []*multipart.Fi
 			uploadFilename := fmt.Sprintf("%d.%s", filenameAsc[index], fileExtension)
 			uploadContentType := getUploadContentType(fileExtension)
 
-			minioEndpoint, bucketName := conf.ServerConf.Minio.Endpoint, conf.ServerConf.CosBucketName
+			minioEndpoint, bucketName := conf.Minio.Endpoint, conf.Minio.Bucket
 			if err != nil {
 				return
 			}

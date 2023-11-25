@@ -15,6 +15,6 @@ func GetOssServer() service_interface.OSSService {
 }
 
 func GetShareServer() service_interface.ShareService {
-	wire.Build(repo_interface.MongoRepoProvider, service_interface.ShareServiceProvider)
+	wire.Build(repo_interface.MongoRepoProvider, repo_interface.MongoDBClientProvider, service_interface.ShareServiceProvider)
 	return nil
 }

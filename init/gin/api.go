@@ -1,4 +1,4 @@
-package rest
+package gin
 
 import (
 	"fmt"

@@ -1,14 +1,14 @@
 package minio
 
 import (
-	"github.com/Monstergogo/beauty-share/conf"
+	"github.com/Monstergogo/beauty-share/init/conf"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 var minioClient *minio.Client
 
-func InitMinio() {
+func Init() {
 	//minioEndpoint, err := nacos.GetNacosConfigClient().GetConfig(vo.ConfigParam{
 	//	DataId: util.MinioEndpointDataID,
 	//})
@@ -32,8 +32,8 @@ func InitMinio() {
 
 	var err error
 	// Initialize minio client object.
-	minioClient, err = minio.New(conf.ServerConf.Minio.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(conf.ServerConf.Minio.ID, conf.ServerConf.Minio.Secret, ""),
+	minioClient, err = minio.New(conf.Minio.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(conf.Minio.ID, conf.Minio.Secret, ""),
 		Secure: false,
 	})
 	if err != nil {

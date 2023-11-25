@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	pb "github.com/Monstergogo/beauty-share/api/protobuf-spec"
-	"github.com/Monstergogo/beauty-share/conf"
+	"github.com/Monstergogo/beauty-share/init/conf"
 	"github.com/Monstergogo/beauty-share/init/db"
 	"github.com/Monstergogo/beauty-share/init/logger"
-	"github.com/Monstergogo/beauty-share/init/minio"
 	"github.com/Monstergogo/beauty-share/init/nacos"
 	grpc2 "github.com/Monstergogo/beauty-share/internal/app"
 	"github.com/Monstergogo/beauty-share/internal/repo_interface"
@@ -27,37 +26,8 @@ import (
 	"time"
 )
 
-type HttpServerRouter struct {
-	Path    string
-	Method  util.HttpMethod
-	Handler func(context *gin.Context)
-}
-
 type MicroServer struct {
 	GinServer *gin.Engine
-}
-
-func (m MicroServer) RegisterGinRouter(router HttpServerRouter) {
-	switch router.Method {
-	case util.HttpMethodGet:
-		m.GinServer.GET(router.Path, router.Handler)
-	case util.HttpMethodPost:
-		m.GinServer.POST(router.Path, router.Handler)
-	case util.HttpMethodPut:
-		m.GinServer.PUT(router.Path, router.Handler)
-	case util.HttpMethodDelete:
-		m.GinServer.DELETE(router.Path, router.Handler)
-	case util.HttpMethodPatch:
-		m.GinServer.PATCH(router.Path, router.Handler)
-	}
-}
-
-func InitServer() MicroServer {
-	logger.InitLogger(conf.ServerConf.Log.LogPath, conf.ServerConf.Log.ErrPath)
-	db.InitMongoDB()
-	minio.InitMinio()
-	ginServer := gin.Default()
-	return MicroServer{GinServer: ginServer}
 }
 
 // 注册service to nacos
@@ -140,7 +110,7 @@ func registerServiceToConsul() error {
 		"Timeout":                        "5s",
 	}
 	payload.Check = healthCheck
-	registerUrl := fmt.Sprintf("%s/v1/agent/service/register?replace-existing-checks=true", conf.ServerConf.Consul.Endpoint)
+	registerUrl := fmt.Sprintf("%s/v1/agent/service/register?replace-existing-checks=true", conf.Consul.Endpoint)
 	payloadMarshal, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -153,7 +123,7 @@ func registerServiceToConsul() error {
 
 // 从consul取消register
 func deregisterServiceToConsul() error {
-	registerUrl := fmt.Sprintf("%s/v1/agent/service/deregister/%s", conf.ServerConf.Consul.Endpoint, util.GrpcServiceName)
+	registerUrl := fmt.Sprintf("%s/v1/agent/service/deregister/%s", conf.Consul.Endpoint, util.GrpcServiceName)
 	req, _ := http.NewRequest("PUT", registerUrl, nil)
 	req.Header.Add("Content-Type", "application/json")
 	_, err := http.DefaultClient.Do(req)
@@ -183,7 +153,7 @@ func (m MicroServer) RunServer() {
 			return
 		}
 		pb.RegisterShareServiceServer(srv, &grpc2.ShareServiceImpl{
-			MongoRepo: repo_interface.MongoRepoProvider(),
+			MongoRepo: repo_interface.MongoRepoProvider(db.GetMongoDB()),
 		})
 		if err = srv.Serve(listener); err != nil {
 			logger.GetLogger().Error("grpc server serve err", zap.Any("err", err))

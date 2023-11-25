@@ -41,7 +41,6 @@ const (
 const (
 	ConsulServerAddrEnvKey = "CONSUL_SERVER_ADDR"
 	ConsulConfigPrefix     = "beauty-share"
-	ConsulConfigBucketName = "beauty-share/cos-bucket-name"
 	ConsulConfigMinio      = "beauty-share/minio"
-	ConsulConfigMongo      = "beauty-share/mongo-uri"
+	ConsulConfigMongo      = "beauty-share/mongo_uri"
 )

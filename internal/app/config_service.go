@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
-	"github.com/Monstergogo/beauty-share/conf"
+	"github.com/Monstergogo/beauty-share/init/conf"
 	"github.com/Monstergogo/beauty-share/init/logger"
 	"github.com/Monstergogo/beauty-share/util"
 	"go.uber.org/zap"
@@ -16,7 +16,7 @@ type ConfigServiceImpl struct {
 }
 
 func (c *ConfigServiceImpl) readKeyFromConsul(ctx context.Context, key string) ([]byte, error) {
-	reqUrl := fmt.Sprintf(fmt.Sprintf("%s/v1/kv/%s/%s?raw", conf.ServerConf.Consul.Endpoint, util.ConsulConfigPrefix, key))
+	reqUrl := fmt.Sprintf(fmt.Sprintf("%s/v1/kv/%s/%s?raw", conf.Consul.Endpoint, util.ConsulConfigPrefix, key))
 	resp, err := http.Get(reqUrl)
 	if err != nil {
 		logger.LogWithTraceId(ctx, zapcore.ErrorLevel, "read key from consul err", zap.Any("err_msg", err))
