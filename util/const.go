@@ -1,10 +1,14 @@
 package util
 
 const (
-	MinioNetProtocol = "http"
-	GinServerPort    = 5008
-	GrpcServerPort   = 5018
-	GrpcServiceName  = "share.ShareService"
+	MinioNetProtocol      = "http"
+	GinServerPort         = 5008
+	GrpcServerPort        = 5018
+	GrpcServiceName       = "share.ShareService"
+	HttpServiceName       = "share-service-http-metric"
+	TracingServiceName    = "share-service"
+	ServiceVersion        = "v0.1.2"
+	OTLPCollectorGrpcAddr = "localhost:4317"
 )
 
 type HttpMethod string
@@ -17,7 +21,7 @@ const (
 	HttpMethodPatch  = HttpMethod("PATCH")
 )
 
-const CtxTraceID = "traceId"
+const CtxTraceID = "trace_id"
 
 const FileUploadRequestName = "files"
 
@@ -44,3 +48,8 @@ const (
 	ConsulConfigMinio      = "beauty-share/minio"
 	ConsulConfigMongo      = "beauty-share/mongo_uri"
 )
+
+var RouterFilter = map[string]bool{
+	"/metrics": true,
+	"/v1/ping": true,
+}

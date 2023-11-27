@@ -1,0 +1,162 @@
+version: "3.5"
+services:
+  jaeger_collector:
+    container_name: jaeger_collector
+    platform: linux/x86_64
+    networks:
+      - apisix
+    image: jaegertracing/jaeger-collector:latest
+    environment:
+      - SPAN_STORAGE_TYPE=kafka
+      - KAFKA_PRODUCER_BROKERS=kafka:9092
+      - KAFKA_PRODUCER_TOPIC=server-tracing
+    depends_on:
+      kafka:
+        condition: service_healthy
+  jaeger_ingester:
+    container_name: jaeger_ingester
+    platform: linux/x86_64
+    networks:
+      - apisix
+    image: jaegertracing/jaeger-ingester:latest
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - KAFKA_CONSUMER_TOPIC=server-tracing
+      - KAFKA_CONSUMER_BROKERS=kafka:9092
+      - ES_SERVER_URLS=http://elasticsearch:9200
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+  jaeger_query:
+    container_name: jaeger_query
+    platform: linux/x86_64
+    networks:
+      - apisix
+    image: jaegertracing/jaeger-query:latest
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - METRICS_STORAGE_TYPE=prometheus
+      - PROMETHEUS_SERVER_URL=http://prometheus:9090
+    volumes:
+      - "./conf/jaeger-ui.json:/etc/jaeger/jaeger-ui.json"
+    command: --query.ui-config /etc/jaeger/jaeger-ui.json
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "16686:16686"
+  otel_collector:
+    container_name: otel_collector
+    networks:
+      - apisix
+    image: otel/opentelemetry-collector-contrib:0.80.0
+    volumes:
+      - ${OTEL_CONFIG_SRC:-./conf/otel-collector-config-connector.yml}:/etc/otelcol/otel-collector-config.yml
+    command: --config /etc/otelcol/otel-collector-config.yml
+    depends_on:
+      - jaeger_collector
+      - jaeger_ingester
+      - jaeger_query
+    ports:
+      - "4317:4317"
+  prometheus:
+    container_name: prometheus
+    networks:
+      - apisix
+    image: prom/prometheus:latest
+    volumes:
+      - "./conf/prometheus.yml:/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"
+  grafana:
+    container_name: grafana
+    networks:
+      - apisix
+    image: grafana/grafana:latest
+    volumes:
+      - ./conf/grafana.ini:/etc/grafana/grafana.ini
+      - ./conf/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yaml
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    ports:
+      - "3000:3000"
+  zookeeper:
+    platform: linux/x86_64
+    container_name: zookeeper
+    networks:
+      - apisix
+    image: wurstmeister/zookeeper
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+  kafka:
+    container_name: kafka
+    networks:
+      - apisix
+    image: wurstmeister/kafka
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_CREATE_TOPICS: "server-tracing:1:1"
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_PORT: 9092
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      interval: 5s
+      timeout: 10s
+      retries: 10
+  elasticsearch:
+    container_name: elasticsearch
+    networks:
+      - apisix
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.15
+    restart: always
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+      - cluster.name=elasticsearch
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: curl -s http://elasticsearch:9200 >/dev/null || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 10
+  kibana:
+    networks:
+      - apisix
+    image: docker.elastic.co/kibana/kibana:7.17.15
+    container_name: kibana
+    volumes:
+      - kibana-data:/usr/share/kibana/data
+    restart: always
+    environment:
+      - elasticsearch.hosts=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "5601:5601"
+
+networks:
+  apisix:
+    external:
+      name: example_apisix
+
+volumes:
+  kafka-sock:
+    driver: local
+  es-data:
+    driver: local
+  kibana-data:
+    driver: local

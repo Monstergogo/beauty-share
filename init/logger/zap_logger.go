@@ -55,7 +55,7 @@ func Init(logPath, errPath string) {
 func LogWithTraceId(ctx context.Context, level zapcore.Level, msg string, fields ...zapcore.Field) {
 	traceId := util.GetTraceIdFromCtx(ctx)
 	fieldsNew := make([]zap.Field, 0, len(fields)+1)
-	fieldsNew = append(fieldsNew, zap.String("traceId", traceId))
+	fieldsNew = append(fieldsNew, zap.String("trace_id", traceId))
 	fieldsNew = append(fieldsNew, fields...)
 	switch level {
 	case zapcore.WarnLevel:

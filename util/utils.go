@@ -18,7 +18,6 @@ const (
 	timeShift   uint8 = workerBits + numberBits
 	workerShift uint8 = numberBits
 	startTime   int64 = 1698400286000
-	CtxTraceId        = "traceId"
 )
 
 type Worker struct {
@@ -61,7 +60,7 @@ func (w Worker) GetId() int64 {
 }
 
 func GetTraceIdFromCtx(ctx context.Context) string {
-	traceId := ctx.Value(CtxTraceId)
+	traceId := ctx.Value(CtxTraceID)
 	if traceId == nil {
 		return ""
 	}
@@ -71,23 +70,15 @@ func GetTraceIdFromCtx(ctx context.Context) string {
 	return ""
 }
 
-// GetCurrIp 获取ip地址
-func GetCurrIp() (string, error) {
-	addrs, err := net.InterfaceAddrs()
+// GetOutboundIP 获取本机的出口IP
+func GetOutboundIP() (net.IP, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	for _, address := range addrs {
-		// 检查ip地址判断是否回环地址
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
-			}
-		}
-	}
-
-	return "", errors.New("can not find the client ip address")
+	defer conn.Close()
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP, nil
 }
 
 // GetConfFromYaml

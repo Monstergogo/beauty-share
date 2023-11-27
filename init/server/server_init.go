@@ -2,132 +2,93 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	pb "github.com/Monstergogo/beauty-share/api/protobuf-spec"
-	"github.com/Monstergogo/beauty-share/init/conf"
 	"github.com/Monstergogo/beauty-share/init/db"
 	"github.com/Monstergogo/beauty-share/init/logger"
-	"github.com/Monstergogo/beauty-share/init/nacos"
-	grpc2 "github.com/Monstergogo/beauty-share/internal/app"
+	"github.com/Monstergogo/beauty-share/init/tracing"
+	"github.com/Monstergogo/beauty-share/internal/app"
 	"github.com/Monstergogo/beauty-share/internal/repo_interface"
 	"github.com/Monstergogo/beauty-share/util"
 	"github.com/gin-gonic/gin"
-	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+	"github.com/google/uuid"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
 
 type MicroServer struct {
-	GinServer *gin.Engine
+	GinServer    *gin.Engine
+	ConsulServer *app.ConsulServiceImpl
 }
 
-// 注册service to nacos
-func registerService() error {
-	namingClient := nacos.GetNacosNamingClient()
-	instanceParams := vo.RegisterInstanceParam{
-		Port:        util.GrpcServerPort,
-		ServiceName: util.GrpcServiceName,
-		Weight:      10,
-		Enable:      true,
-		Healthy:     true,
-		Ephemeral:   true,
-		Metadata:    map[string]string{"rpc-type": "grpc", "version": "v1"},
-	}
-	currIp, err := util.GetCurrIp()
+func (m MicroServer) registerService() error {
+	ip, err := util.GetOutboundIP()
 	if err != nil {
 		return err
 	}
-	instanceParams.Ip = currIp
-	success, err := namingClient.RegisterInstance(instanceParams)
-	if err != nil {
+	grpcServicePayload := app.RegisterPayload{
+		Address: ip.String(),
+		Name:    util.GrpcServiceName,
+		Port:    util.GrpcServerPort,
+		Tags:    []string{"share", "v1"},
+		Meta:    map[string]string{"version": "0.1.1", "service_type": "grpc"},
+		Check: map[string]interface{}{
+			"DeregisterCriticalServiceAfter": "90m",
+			"HTTP":                           fmt.Sprintf("http://%s:%d/v1/ping", ip.String(), util.GinServerPort),
+			"Interval":                       "10s",
+			"Timeout":                        "5s",
+		},
+	}
+	metricHttpServicePayload := app.RegisterPayload{
+		Address: ip.String(),
+		Name:    util.HttpServiceName,
+		Port:    util.GinServerPort,
+		Tags:    []string{"share-http", "v1"},
+		Meta:    map[string]string{"version": "0.1.1", "service_type": "gin"},
+	}
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		err := m.ConsulServer.RegisterService(grpcServicePayload)
+		return err
+	})
+
+	eg.Go(func() error {
+		err := m.ConsulServer.RegisterService(metricHttpServicePayload)
+		return err
+	})
+	if err = eg.Wait(); err != nil {
 		return err
 	}
-	logger.GetLogger().Info("register grpc service instance success", zap.Bool("register result", success))
-	return err
+	return nil
 }
 
-// 从nacos 注销service实例
-func deRegisterService() error {
-	namingClient := nacos.GetNacosNamingClient()
-	instanceParams := vo.DeregisterInstanceParam{
-		Port:        util.GrpcServerPort,
-		ServiceName: util.GrpcServiceName,
-		Ephemeral:   true,
-	}
-	currIp, err := util.GetCurrIp()
-	if err != nil {
+func (m MicroServer) deregisterService() error {
+	var eg errgroup.Group
+	eg.Go(func() error {
+		err := m.ConsulServer.DeregisterService(util.GrpcServiceName)
+		return err
+	})
+
+	eg.Go(func() error {
+		err := m.ConsulServer.DeregisterService(util.HttpServiceName)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
 		return err
 	}
-	instanceParams.Ip = currIp
-	success, err := namingClient.DeregisterInstance(instanceParams)
-	if err != nil {
-		return err
-	}
-	logger.GetLogger().Info("deregister grpc service success", zap.Any("deregister result", success))
-	return err
-}
-
-type registerToConsulPayload struct {
-	ID                string                 `json:"ID"`
-	Name              string                 `json:"Name"`
-	Tags              []string               `json:"Tags"`
-	Address           string                 `json:"Address"`
-	Port              int                    `json:"Port"`
-	Meta              map[string]string      `json:"Meta"`
-	EnableTagOverride bool                   `json:"EnableTagOverride"`
-	Check             map[string]interface{} `json:"Check"`
-	Weights           map[string]int         `json:"Weights"`
-}
-
-// 注册grpc服务到consul
-func registerServiceToConsul() error {
-	payload := registerToConsulPayload{
-		Name: util.GrpcServiceName,
-		Port: util.GrpcServerPort,
-		Tags: []string{"share", "v1"},
-		Meta: map[string]string{"version": "0.1.1"},
-	}
-
-	currIp, err := util.GetCurrIp()
-	if err != nil {
-		return err
-	}
-	payload.Address = currIp
-	// 配置health check http接口
-	healthCheck := map[string]interface{}{
-		"DeregisterCriticalServiceAfter": "90m",
-		"HTTP":                           fmt.Sprintf("http://%s:%d/v1/ping", currIp, util.GinServerPort),
-		"Interval":                       "10s",
-		"Timeout":                        "5s",
-	}
-	payload.Check = healthCheck
-	registerUrl := fmt.Sprintf("%s/v1/agent/service/register?replace-existing-checks=true", conf.Consul.Endpoint)
-	payloadMarshal, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	req, _ := http.NewRequest("PUT", registerUrl, strings.NewReader(string(payloadMarshal)))
-	req.Header.Add("Content-Type", "application/json")
-	_, err = http.DefaultClient.Do(req)
-	return err
-}
-
-// 从consul取消register
-func deregisterServiceToConsul() error {
-	registerUrl := fmt.Sprintf("%s/v1/agent/service/deregister/%s", conf.Consul.Endpoint, util.GrpcServiceName)
-	req, _ := http.NewRequest("PUT", registerUrl, nil)
-	req.Header.Add("Content-Type", "application/json")
-	_, err := http.DefaultClient.Do(req)
-	return err
+	return nil
 }
 
 func (m MicroServer) RunServer() {
@@ -145,14 +106,15 @@ func (m MicroServer) RunServer() {
 		}
 	}()
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.UnaryInterceptor(reqLogInterceptor()),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()))
 	go func() {
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", util.GrpcServerPort))
 		if err != nil {
 			logger.GetLogger().Error("grpc server listen err", zap.Any("err", err))
 			return
 		}
-		pb.RegisterShareServiceServer(srv, &grpc2.ShareServiceImpl{
+		pb.RegisterShareServiceServer(srv, &app.ShareServiceImpl{
 			MongoRepo: repo_interface.MongoRepoProvider(db.GetMongoDB()),
 		})
 		if err = srv.Serve(listener); err != nil {
@@ -163,15 +125,15 @@ func (m MicroServer) RunServer() {
 	}()
 	time.Sleep(1 * time.Second)
 
-	// 注册grpc服务到consul
-	if err := registerServiceToConsul(); err != nil {
+	// 注册grpc和http metric服务到consul
+	if err := m.registerService(); err != nil {
 		logger.GetLogger().Error("register service instance err", zap.Any("err_msg", err))
 		serverStartErrChan <- err
 	}
-	waitSignalClose(&httpServer, srv, serverStartErrChan)
+	m.waitSignalClose(&httpServer, srv, serverStartErrChan)
 }
 
-func waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStartErrChan chan interface{}) {
+func (m MicroServer) waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStartErrChan chan interface{}) {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	select {
@@ -181,12 +143,13 @@ func waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStar
 		panic(errInfo)
 	}
 
-	db.DisconnectMongoDB()
+	// 从consul取消服务注册
+	m.deregisterService()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	go func() {
 		defer wg.Done()
 		if err := ginServer.Shutdown(ctx); err != nil {
@@ -199,9 +162,44 @@ func waitSignalClose(ginServer *http.Server, grpcServer *grpc.Server, serverStar
 	go func() {
 		defer wg.Done()
 		grpcServer.GracefulStop()
-		deregisterServiceToConsul()
+		return
+	}()
+
+	go func() {
+		defer wg.Done()
+		for _, fn := range tracing.Shutdowns {
+			if err := fn(ctx); err != nil {
+				logger.GetLogger().Error("failed to shutdown TracerProvider", zap.Any("err_mgs", err))
+			}
+		}
 		return
 	}()
 	wg.Wait()
+
+	// 关闭mongodb连接
+	db.DisconnectMongoDB()
 	logger.GetLogger().Info("server shutdown success")
+}
+
+// 打印请求日志并生成tracing
+func reqLogInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			md = metadata.Pairs()
+		}
+
+		// Set trace id for context
+		traceIDs := md[util.CtxTraceID]
+		if len(traceIDs) > 0 {
+			ctx = context.WithValue(ctx, util.CtxTraceID, traceIDs[0])
+		} else {
+			// Generate trace id and set context if not exists.
+			traceID, _ := uuid.NewRandom()
+			ctx = context.WithValue(ctx, util.CtxTraceID, traceID.String())
+		}
+		logger.LogWithTraceId(ctx, zapcore.InfoLevel, "grpc req msg", zap.Any("method", info.FullMethod), zap.Any("params", req))
+
+		return handler(ctx, req)
+	}
 }

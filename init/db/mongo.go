@@ -6,6 +6,7 @@ import (
 	"github.com/Monstergogo/beauty-share/init/logger"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.uber.org/zap"
 	"sync"
 	"time"
@@ -19,7 +20,11 @@ type mongoClientStruct struct {
 var mongoClient mongoClientStruct
 
 func mongoDBConnectAndCheckHearty(ctx context.Context, mongoUri string) (*mongo.Client, error) {
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoUri))
+	opt := options.Client()
+	opt.Monitor = otelmongo.NewMonitor()
+	opt.ApplyURI(mongoUri)
+	client, err := mongo.Connect(ctx, opt)
+
 	if err != nil {
 		return client, err
 	}
